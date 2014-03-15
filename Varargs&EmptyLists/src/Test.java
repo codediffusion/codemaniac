@@ -15,6 +15,8 @@ public class Test {
 	 * @param args
 	 */
 	public static void main(final String[] args) {
+
+		// New comment.
 		// TODO Auto-generated method stub
 		final Test test = new Test();
 		System.out.println(test.minimum(1));
