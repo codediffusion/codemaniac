@@ -1,0 +1,82 @@
+package com.client.integration;
+
+import com.client.DataClientServiceImpl;
+import com.client.app.App;
+import com.client.app.ToolsExecutor;
+import com.client.config.ClientConfig;
+import com.client.stub.app.EurekaServerApp;
+import com.client.stub.app.StubbedApp;
+import com.entity.profile.Profile;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.IOException;
+
+import static com.constants.ProfileConstants.TOOLS_EUREKA;
+import static com.constants.ProfileConstants.TOOLS_TEST;
+import static com.constants.ProfileConstants.TEST;
+import static com.entity.profile.ProfileType.BRH;
+import static junit.framework.TestCase.assertNotNull;
+import static org.junit.Assert.assertEquals;
+import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
+
+
+@ActiveProfiles({TOOLS_TEST})
+@SpringBootTest(classes = {App.class}, webEnvironment = RANDOM_PORT)
+@RunWith(SpringJUnit4ClassRunner.class)
+public class EurekaIntegrationTest {
+
+    private int serverPort;
+
+    @Autowired
+    private ClientConfig ClientConfig;
+
+    @Autowired
+    private ToolsExecutor ToolsExecutor;
+
+    @Autowired
+    private DataClientServiceImpl DataClientService;
+
+    private RestTemplate restTemplate = new RestTemplate();
+
+    @BeforeClass
+    public static void beforeClass(){
+        //Start Eureka server.
+        new SpringApplicationBuilder(EurekaServerApp.class)
+                .properties("spring.config.location: classpath:eureka-server.properties")
+                .build().run();
+    }
+
+    @Before
+    public void setup(){
+        //Start stubbed  application.
+        ConfigurableApplicationContext ctx = new SpringApplicationBuilder(StubbedApp.class)
+                .properties("spring.config.location: classpath:stubbedApp.properties", "server.port: 0")
+                .build().run();
+        serverPort = Integer.valueOf(ctx.getEnvironment().getProperty("local.server.port"));
+    }
+
+    @Test
+    public void ToolWithEureka_successNonInteractive() throws IllegalAccessException, IOException, InstantiationException {
+        String endpoint = "http://localhost:" + serverPort;
+
+        ToolsExecutor.execute(ClientConfig, DataClientService);
+
+        Profile profile = restTemplate.getForObject(endpoint + "/api/v1/profile/BRH/PPP.BRH.3450/0", Profile.class);
+
+        assertNotNull(profile);
+        assertEquals(BRH, profile.getProfileType());
+        assertEquals("PPP.BRH.3450", profile.getProfileId());
+        assertEquals(0L, profile.getProfileVersion().longValue());
+    }
+
+}
